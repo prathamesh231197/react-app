@@ -1,46 +1,78 @@
-import React, { useEffect, useState } from "react";
-import apiClient, { CanceledError } from "./services/api-client";
-
-interface User {
-  id: number;
-  name: String;
-}
+import { useEffect, useState } from "react";
+import { CanceledError } from "./services/api-client";
+import userService, { User } from "./services/user-service";
 
 function App() {
-  const [users, setUsers] = useState<User[]>([]);
 
-  const [error, setError] = useState("");
+  const {users, error. isLoading} = useUsers();
+  
+    
 
-  const [isLoading, setLoading] = useState(false);
+  const deleteUser = (user: User) => {
+    setUsers(users.filter((u) => u.id !== user.id));
 
-  useEffect(() => {
-    const controller = new AbortController();
+    const originalUsers = [...users];
 
-    setLoading(true);
+    userService.delete(user.id).catch((err) => {
+      setError(err.message);
+      setUsers(originalUsers);
+    });
+  };
 
-    apiClient
-      .get<User[]>("/users", {
-        signal: controller.signal,
-      })
-      .then((res) => {
-        setUsers(res.data);
-        setLoading(false);
-      })
+  const addUser = () => {
+    const originalUsers = [...users];
+    const newUser = { id: 0, name: "Mosh" };
+    setUsers([newUser, ...users]);
+
+    userService
+      .create(newUser)
+      .then(({ data: savedUser }) => setUsers([savedUser, ...users]))
       .catch((err) => {
-        if (err instanceof CanceledError) return;
         setError(err.message);
-        setLoading(false);
+        setUsers(originalUsers);
       });
+  };
 
-    return () => controller.abort();
-  }, []);
+  const updateUser = (user: User) => {
+    const originalUsers = [...users];
+    const updatedUser = { ...user, name: user.name + "!" };
+    setUsers(users.map((u) => (u.id === user.id ? updatedUser : u)));
+
+    userService.update(updatedUser).catch((err) => {
+      setError(err.message);
+      setUsers(originalUsers);
+    });
+  };
+
   return (
     <>
       {error && <p className="text-danger">{error}</p>}
-      {isLoading && <div className="spinner-border"></div>}
-      <ul>
+      {isLoading && <div className="spinner-border" onClick={addUser}></div>}
+      <button className="btn btn-primary mb-3" onClick={addUser}>
+        Add
+      </button>
+      <ul className="list-group">
         {users.map((user) => (
-          <li key={user.id}>{user.name}</li>
+          <li
+            key={user.id}
+            className="list-group-item d-flex justify-content-between"
+          >
+            {user.name}
+            <div>
+              <button
+                className="btn btn-outline-secondary mx-1"
+                onClick={() => updateUser(user)}
+              >
+                Update
+              </button>
+              <button
+                className="btn btn-outline-danger"
+                onClick={() => deleteUser(user)}
+              >
+                Delete
+              </button>
+            </div>
+          </li>
         ))}
       </ul>
     </>
